@@ -34,16 +34,24 @@ jobs:
           if [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
           fi
+          ls -la debug.keystore .env app/google-services.json || true
 
-      - name: Accept Android SDK licenses
+      - name: Accept Android SDK licenses and install SDK 36.1
         run: |
-          SDKMGR="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ -x "$SDKMGR" ]; then
-            yes | "$SDKMGR" --licenses > /dev/null || true
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Using SDK_DIR=$SDK_DIR"
+          mkdir -p "$SDK_DIR/licenses"
+          printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n" > "$SDK_DIR/licenses/android-sdk-license"
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" > "$SDK_DIR/licenses/android-sdk-preview-license"
+          SDKMGR="$(command -v sdkmanager || find "$SDK_DIR/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1 || true)"
+          echo "Found sdkmanager: $SDKMGR"
+          if [ -n "$SDKMGR" ]; then
+            yes | "$SDKMGR" --sdk_root="$SDK_DIR" --licenses > /dev/null || true
+            "$SDKMGR" --sdk_root="$SDK_DIR" --install "platforms;android-36.1" || "$SDKMGR" --sdk_root="$SDK_DIR" --install "platforms;android-36" || true
           fi
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
+        run: gradle :app:assembleDebug --no-daemon --no-configuration-cache --console=plain -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8"
 
       - name: Prepare APK file
         run: cp app/build/outputs/apk/debug/app-debug.apk PARMAR-AI-debug.apk
